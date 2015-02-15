@@ -1,0 +1,55 @@
+# Sample config file for fluentd. Obviously paths, tags, AWS credentials
+# and settings as well as SQL database URL have to be replaced.
+
+<source>
+  type tail
+  path /path/to/logfile/logfile
+  pos_file /path/to/logfile/logfile.pos
+  tag tag.to.set
+  format LOG_REGEXP  # (see http://fluentular.herokuapp.com/)
+  time_format TIME_FORMAT  # (see http://fluentular.herokuapp.com/)
+</source>
+
+
+<match tag.to.set>
+  type copy
+
+
+  # Send logs to S3 once a day
+  <store>
+    type s3
+
+    aws_key_id AWS_KEY_ID
+    aws_sec_key AWS_SECRET_KEY
+    s3_bucket AWS_S3_BUCKET
+    s3_region AWS_S3_REGION
+    path AWS_S3_PATH
+
+    buffer_path /path/to/logfile/fluent.buffer.s3
+    time_slice_format %Y%m%d  # This gives a daily log archive on S3
+    time_slice_wait 5m  # Wait 5min at the end of the day for long requests
+    utc  # Sync on UTC days to send to S3
+
+    format json
+    include_time_key
+    time_format %FT%T.%L%z  # Time format inside the archive sent to S3
+  </store>
+
+
+  # Send logs to SQL every minute
+  <store>
+    type exec
+
+    flush_interval 1m
+
+    # Given python will require some dependencies listed in `to_sql.py`
+    command /path/to/a/python /path/to/to_sql.py postgresql://user:pass@host:port/dbname
+    buffer_path /path/to/logfile/fluent.buffer.s3
+
+    format json
+
+    time_key time
+    time_format %FT%T.%L%z  # Time format expected by to_sql.py
+    tag_key tag
+  </store>
+</match>
